@@ -1,6 +1,6 @@
-# Flow Matching for Image Generation
+# Flow matching for image generation
 
-**Conditional Flow Matching vs. Diffusion Models: A Systematic Comparison**
+**Conditional Flow Matching vs. Diffusion Models: a systematic comparison**
 
 > Implementation of Conditional Flow Matching (CFM) from scratch, benchmarked against DDPM and DDIM on CIFAR-10, with a focus on the trade-off between sampling speed (NFE) and generation quality (FID).
 
@@ -22,7 +22,7 @@ dx/dt = v_theta(x, t),    t in [0, 1]
 
 using standard solvers (Euler, RK4). The straight-path formulation requires significantly fewer integration steps than diffusion models for comparable quality.
 
-## Key Results
+## Key results
 
 | Method | NFE | FID |
 |--------|-----|-----|
@@ -33,7 +33,7 @@ using standard solvers (Euler, RK4). The straight-path formulation requires sign
 
 *Results will be filled upon completion of experiments.*
 
-## Project Structure
+## Project structure
 
 ```
 .
@@ -84,7 +84,7 @@ All three methods share the **same U-Net backbone** for fair comparison.
 | **Interpolation** | Latent space interpolations between generated samples |
 | **Conditional** | Class-conditional generation on CIFAR-10 |
 
-## Getting Started
+## Getting started
 
 ### Installation
 
