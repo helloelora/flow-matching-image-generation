@@ -41,3 +41,57 @@ Quickly identify why generated images looked poor and decide which Euler setup t
 ## Decision for project
 - Use **Run 3 (EMA)** for Euler vs DDPM vs DDIM comparison.
 - Mention low-NFE behavior separately (Run 2 slightly better at 10/20).
+
+---
+
+## Update (2026-03-13) - Conditional Flow Matching (CIFAR-10)
+
+### Main result
+- Conditional training dramatically improves quality versus the previous non-conditional Euler runs.
+- Best overall checkpoint in the current logs:
+  - **Epoch 190, NFE 100**
+  - **FID = 13.186687** (`fid_std = 0.018418` across 3 seeds)
+  - **IS = 8.271859**
+  - **sec/img = 0.025744**
+
+### Best checkpoint by NFE
+
+| NFE | Best epoch | Best FID | FID std | IS mean | sec/img |
+|---:|---:|---:|---:|---:|---:|
+| 10  | 190 | 21.069645 | 0.009113 | 7.813992 | 0.003371 |
+| 20  | 200 | 16.691305 | 0.007554 | 7.953713 | 0.005854 |
+| 50  | 180 | 13.781469 | 0.011525 | 8.076406 | 0.013311 |
+| 100 | 190 | 13.186687 | 0.018418 | 8.271859 | 0.025744 |
+
+### Comparison with previous baselines
+- Previous best Euler (non-conditional, Run 3 EMA): **FID = 152.857712** at NFE 100.
+- DDPM baseline in this repo snapshot: **FID = 85.431396** at NFE 100.
+- New conditional run is therefore a major quality jump in this setup.
+
+### What changed vs `flow-matching-euler-cifar10` (parameters)
+
+| Parameter | `flow-matching-euler-cifar10` | `flow-matching-euler-cifar10-conditional` | Change impact |
+|---|---:|---:|---|
+| `epochs` | 100 | 500 (run continued to ~210 in current logs) | Much longer optimization |
+| `run_prefix` | `cfm_cifar10` | `cfm_cifar10_conditional` | Separate run lineage |
+| `num_classes` | — | 10 | Class conditioning enabled |
+| `class_dropout_p` | — | 0.1 | Enables classifier-free guidance training |
+| `base_ch` | implicit/default | 128 | Explicit model capacity setting |
+| `t_dim` | implicit/default | 256 | Explicit time/embedding size |
+| `use_attn_16` | not exposed | `True` | Extra attention at 16x16 |
+| `use_attn_8` | not exposed | `True` | Extra attention at 8x8 |
+| `progress_cfg_scale` | — | 1.5 | Guided visual sampling during training |
+| `eval_num_images` | 5000 | 10000 (per seed) | Lower metric variance |
+| `eval_seed(s)` | single `2026` | `(2026, 2027, 2028)` | Multi-seed evaluation |
+| `eval_cfg_scale` | — | 1.0 | CFG path available at eval |
+
+Notes:
+- Core training hyperparameters are otherwise aligned (`dataset_name=cifar10`, `image_size=32`, `batch_size=128`, `lr=2e-4`, `weight_decay=1e-5`, `use_ema=True`, `ema_decay=0.999`, same `eval_nfes`).
+- The biggest effective differences are **conditioning + CFG-ready training + longer training horizon + stronger evaluation protocol**.
+
+### Which epoch visual to print?
+- **Best qualitative candidate (primary): Epoch 190, NFE 100** (best overall FID).
+- **Speed/quality trade-off candidate (secondary): Epoch 180, NFE 50** (very close FID, ~2x faster sampling).
+- Suggested report figure: show both side-by-side to justify the final checkpoint choice.
+
+![Epoch 190 qualitative samples](progress_epoch_190.png)
