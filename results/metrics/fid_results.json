@@ -1,0 +1,37 @@
+[
+  {
+    "nfe": 10,
+    "solver_sampler": "ddim",
+    "fid": 22.1793,
+    "is_mean": 7.7657,
+    "is_std": 0.1732
+  },
+  {
+    "nfe": 20,
+    "solver_sampler": "ddim",
+    "fid": 18.9539,
+    "is_mean": 7.8152,
+    "is_std": 0.1082
+  },
+  {
+    "nfe": 50,
+    "solver_sampler": "ddim",
+    "fid": 17.9594,
+    "is_mean": 7.841,
+    "is_std": 0.1029
+  },
+  {
+    "nfe": 100,
+    "solver_sampler": "ddim",
+    "fid": 18.4254,
+    "is_mean": 7.8816,
+    "is_std": 0.1704
+  },
+  {
+    "nfe": 1000,
+    "solver_sampler": "ddpm",
+    "fid": 13.061,
+    "is_mean": 8.1821,
+    "is_std": 0.1446
+  }
+]
