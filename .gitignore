@@ -31,3 +31,4 @@ results/logs/
 data/
 *.tar.gz
 wandb/
+other repos/
