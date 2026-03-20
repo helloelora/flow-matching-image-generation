@@ -25,9 +25,9 @@ env/
 Thumbs.db
 
 # Project-specific
-results/checkpoints/*.pt
-results/checkpoints/*.pth
-results/logs/
+results/*/checkpoints/*.pt
+results/*/checkpoints/*.pth
+results/*/logs/
 data/
 *.tar.gz
 wandb/
