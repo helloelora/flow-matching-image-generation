@@ -12,7 +12,7 @@ All models were trained on CIFAR-10 (32x32) and evaluated on 10,000 generated im
 |-------|-------------|-------------|----------------|-----------|-----------|
 | **DDPM/DDIM** | UNet (128 base, [1,2,2,2], 4 heads, GN32) | None | 500 | 0.9999 | DDPM (1000 steps), DDIM (variable) |
 | **OT-CFM (ours)** | Same UNet as DDPM | None | 500 | 0.9999 | Midpoint, RK4 (torchdiffeq) |
-| **Conditional CFM (Elora)** | SimpleFlowUNet (128 base, [1,2,4], GN8, class emb) | Class-conditional (10 classes, CFG) | 210 (best at 190) | 0.999 | Euler, Midpoint, RK4 |
+| **Class-Conditional CFM** | SimpleFlowUNet (128 base, [1,2,4], GN8, class emb) | Class-conditional (10 classes, CFG) | 210 (best at 190) | 0.999 | Euler, Midpoint, RK4 |
 
 ---
 
@@ -33,16 +33,16 @@ All models were trained on CIFAR-10 (32x32) and evaluated on 10,000 generated im
 | OT-CFM (ours) | midpoint | 100 | 11.21 | 8.50 | 20.7 |
 | OT-CFM (ours) | rk4 | 20 | 18.01 | 9.15 | 4.2 |
 | OT-CFM (ours) | rk4 | 100 | 10.65 | 8.58 | 20.7 |
-| Cond. CFM (Elora) | euler | 10 | 21.07 | 7.81 | 3.4 |
-| Cond. CFM (Elora) | euler | 20 | 16.69 | 7.95 | 5.9 |
-| Cond. CFM (Elora) | euler | 50 | 13.78 | 8.08 | 13.3 |
-| Cond. CFM (Elora) | euler | 100 | 13.19 | 8.27 | 25.7 |
-| Cond. CFM (Elora) | midpoint | 10 | 17.53 | 8.02 | 2.6 |
-| Cond. CFM (Elora) | midpoint | 20 | 15.05 | 8.15 | 4.9 |
-| Cond. CFM (Elora) | midpoint | 50 | 13.17 | 8.28 | 12.2 |
-| Cond. CFM (Elora) | midpoint | 100 | 12.64 | 8.36 | 24.3 |
-| Cond. CFM (Elora) | rk4 | 20 | 20.30 | 8.84 | 4.9 |
-| Cond. CFM (Elora) | rk4 | 100 | 12.19 | 8.46 | 24.3 |
+| Cond. CFM | euler | 10 | 21.07 | 7.81 | 3.4 |
+| Cond. CFM | euler | 20 | 16.69 | 7.95 | 5.9 |
+| Cond. CFM | euler | 50 | 13.78 | 8.08 | 13.3 |
+| Cond. CFM | euler | 100 | 13.19 | 8.27 | 25.7 |
+| Cond. CFM | midpoint | 10 | 17.53 | 8.02 | 2.6 |
+| Cond. CFM | midpoint | 20 | 15.05 | 8.15 | 4.9 |
+| Cond. CFM | midpoint | 50 | 13.17 | 8.28 | 12.2 |
+| Cond. CFM | midpoint | 100 | 12.64 | 8.36 | 24.3 |
+| Cond. CFM | rk4 | 20 | 20.30 | 8.84 | 4.9 |
+| Cond. CFM | rk4 | 100 | 12.19 | 8.46 | 24.3 |
 
 ### Best Results per Model
 
@@ -51,7 +51,7 @@ All models were trained on CIFAR-10 (32x32) and evaluated on 10,000 generated im
 | DDPM | 13.06 | 1000 | ddpm | 205.0 |
 | DDIM | 17.96 | 50 | ddim | 10.5 |
 | OT-CFM (ours) | **10.65** | 100 | rk4 | 20.7 |
-| Cond. CFM (Elora) | 12.19 | 100 | rk4 | 24.3 |
+| Cond. CFM | 12.19 | 100 | rk4 | 24.3 |
 
 ---
 
@@ -80,18 +80,18 @@ Across both CFM models, solver choice follows a consistent pattern:
 
 - **Midpoint** (2nd order) is the best default — good quality at all NFE, recommended by the Flow Matching Guide paper.
 - **RK4** (4th order) achieves the best FID at high NFE (100) but underperforms at low NFE (20) because each step costs 4 function evaluations, leaving fewer actual integration steps.
-- **Euler** (1st order, Elora's model) is the least accurate per-NFE but simplest. The gap narrows at high NFE.
+- **Euler** (1st order) is the least accurate per-NFE but simplest. The gap narrows at high NFE.
 - At equal NFE, midpoint and rk4 have nearly identical runtime since NFE counts total model calls, not steps.
 
 ### 4. Unconditional vs Conditional CFM
 
-Comparing our unconditional OT-CFM with Elora's conditional model (both at cfg_scale=1.0, i.e. no guidance boost):
+Comparing the unconditional OT-CFM with the class-conditional CFM (both at cfg_scale=1.0, i.e. no guidance boost):
 
-- At NFE=100 midpoint: ours **11.21** vs Elora's **12.64**. Our unconditional model is slightly better, likely because:
+- At NFE=100 midpoint: unconditional **11.21** vs conditional **12.64**. The unconditional model is slightly better, likely because:
   - Longer effective training (500 epochs vs 210)
   - Higher EMA decay (0.9999 vs 0.999)
   - The conditional model has more parameters to learn but was trained for fewer epochs
-- Elora's model with Euler at NFE=100 (**13.19**) is close to DDPM at 1000 steps (**13.06**), confirming that even basic Euler sampling with CFM matches diffusion quality with 10x fewer steps.
+- The conditional model with Euler at NFE=100 (**13.19**) is close to DDPM at 1000 steps (**13.06**), confirming that even basic Euler sampling with CFM matches diffusion quality with 10x fewer steps.
 - The conditional model's main advantage (class guidance with cfg_scale > 1.0) was not used in this comparison — higher cfg_scale would improve its FID further.
 
 ### 5. DDIM Saturation
@@ -111,7 +111,7 @@ All solvers scale linearly with NFE. At equal NFE, all methods have similar per-
 | 50 | 10.5 ms | 10.4 ms | 12.2 ms |
 | 100 | 21.0 ms | 20.7 ms | 24.3 ms |
 
-Elora's conditional model is ~15% slower per step due to larger channel dimensions ([1,2,4] vs [1,2,2,2]) and class embedding overhead.
+The conditional model is ~15% slower per step due to larger channel dimensions ([1,2,4] vs [1,2,2,2]) and class embedding overhead.
 
 ---
 
@@ -122,4 +122,4 @@ Elora's conditional model is ~15% slower per step due to larger channel dimensio
 3. **RK4 wins at high NFE** (100+) but wastes compute at low NFE. Use midpoint for fast sampling, RK4 for maximum quality.
 4. **DDPM's 1000-step quality is matched by CFM in ~50 steps** — a 20x sampling speedup with no quality loss.
 5. **DDIM saturates** around 50 steps and cannot match CFM quality regardless of NFE budget.
-6. **Class conditioning + CFG** is an orthogonal improvement axis — Elora's model could be further improved with guidance scales > 1.0.
+6. **Class conditioning + CFG** is an orthogonal improvement axis — the conditional model could be further improved with guidance scales > 1.0.

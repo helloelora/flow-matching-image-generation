@@ -32,3 +32,4 @@ data/
 *.tar.gz
 wandb/
 other repos/
+notebooks/**/*.pdf
