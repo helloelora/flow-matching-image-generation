@@ -1,4 +1,4 @@
-# Flow Matching for Image Generation
+# Flow matching for image generation
 
 **Conditional Flow Matching vs. Diffusion Models: A Systematic Comparison on CIFAR-10**
 
@@ -43,7 +43,7 @@ where `x_0 ~ N(0, I)` is Gaussian noise and `x_1` is a data sample. At inference
 
 ---
 
-## Key Results
+## Key results
 
 All models were trained on CIFAR-10 (32x32) and evaluated on 10,000 generated images. FID and IS are computed against the training set.
 
@@ -140,7 +140,7 @@ All models use EMA (Exponential Moving Average) weights for evaluation.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 .
@@ -183,7 +183,7 @@ The unconditional OT-CFM and DDPM/DDIM share the **same UNet backbone** for fair
 
 ---
 
-## Getting Started
+## Getting started
 
 All training and evaluation runs on **Google Colab** with GPU (T4/A100).
 
