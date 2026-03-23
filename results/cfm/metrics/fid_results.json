@@ -1,0 +1,44 @@
+[
+  {
+    "nfe": 10,
+    "solver_sampler": "midpoint",
+    "fid": 18.2465,
+    "is_mean": 8.0668,
+    "is_std": 0.2796
+  },
+  {
+    "nfe": 20,
+    "solver_sampler": "midpoint",
+    "fid": 14.7956,
+    "is_mean": 8.2214,
+    "is_std": 0.2437
+  },
+  {
+    "nfe": 50,
+    "solver_sampler": "midpoint",
+    "fid": 12.0195,
+    "is_mean": 8.4367,
+    "is_std": 0.2049
+  },
+  {
+    "nfe": 100,
+    "solver_sampler": "midpoint",
+    "fid": 11.2081,
+    "is_mean": 8.4973,
+    "is_std": 0.191
+  },
+  {
+    "nfe": 20,
+    "solver_sampler": "rk4",
+    "fid": 18.0074,
+    "is_mean": 9.1545,
+    "is_std": 0.2364
+  },
+  {
+    "nfe": 100,
+    "solver_sampler": "rk4",
+    "fid": 10.6479,
+    "is_mean": 8.5827,
+    "is_std": 0.2011
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "nfe": 10,
+    "solver_sampler": "ddim",
+    "sec_per_image": 0.002231,
+    "total_sampling_sec": 22.31
+  },
+  {
+    "nfe": 20,
+    "solver_sampler": "ddim",
+    "sec_per_image": 0.004202,
+    "total_sampling_sec": 42.02
+  },
+  {
+    "nfe": 50,
+    "solver_sampler": "ddim",
+    "sec_per_image": 0.010497,
+    "total_sampling_sec": 104.97
+  },
+  {
+    "nfe": 100,
+    "solver_sampler": "ddim",
+    "sec_per_image": 0.020957,
+    "total_sampling_sec": 209.57
+  },
+  {
+    "nfe": 1000,
+    "solver_sampler": "ddpm",
+    "sec_per_image": 0.205043,
+    "total_sampling_sec": 2050.43
+  }
+]
