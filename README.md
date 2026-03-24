@@ -126,6 +126,30 @@ Per-class samples from the class-conditional CFM model, and the effect of classi
 
 ![CFG comparison](visualizations/conditional_cfg_comparison.png)
 
+### ODE Inversion & Image Editing
+
+Since CFM's ODE is deterministic, we can **invert** it (solve backwards from t=1 to t=0) to recover the noise vector for any real image, then edit by manipulating it.
+
+**Reconstruction** — encode real images to noise, decode back. Near-perfect reconstruction confirms the ODE is accurately invertible:
+
+![Reconstruction](results/ode%20inversion/reconstruction.png)
+
+**Latent perturbations** — adding noise to the recovered latent at increasing scales. Small σ preserves identity; large σ destroys it:
+
+![Perturbations](results/ode%20inversion/perturbations.png)
+
+**Attribute editing** — compute class-mean latent directions and apply them to edit images (e.g., horse→car, cat→dog):
+
+![Attribute editing](results/ode%20inversion/attribute_editing.png)
+
+**Inversion trajectory** — real images dissolving into Gaussian noise along the backward ODE path:
+
+![Inversion trajectory](results/ode%20inversion/inversion_trajectory.png)
+
+**Real image interpolation** — encode two real images, interpolate their latent vectors, decode smooth transitions:
+
+![Real interpolation](results/ode%20inversion/real_interpolation.png)
+
 ---
 
 ## Models
@@ -151,15 +175,18 @@ All models use EMA (Exponential Moving Average) weights for evaluation.
 │   ├── cfm/
 │   │   ├── 01_cfm.ipynb               # Unconditional OT-CFM training
 │   │   ├── 02_evaluate.ipynb          # OT-CFM evaluation
-│   │   └── 03_evaluate_cond.ipynb     # Class-conditional CFM evaluation
+│   │   ├── 03_evaluate_cond.ipynb     # Class-conditional CFM evaluation
+│   │   └── 04_ode_inversion.ipynb     # ODE inversion & image editing
 │   ├── 04_visualizations.ipynb        # All visualizations (trajectories, interpolations, etc.)
 │   └── colab_setup.ipynb              # Colab environment setup
 ├── results/
 │   ├── ddpm/                          # DDPM/DDIM metrics, samples, checkpoints
 │   ├── cfm/                           # OT-CFM metrics, samples, checkpoints
-│   └── cfm_elora/                     # Class-conditional CFM metrics
+│   ├── cfm_elora/                     # Class-conditional CFM metrics
+│   └── ode inversion/                # ODE inversion & editing results
 ├── visualizations/                    # All generated figures and GIFs
-├── docs/                              # Reference papers
+├── report/                            # NeurIPS report & Beamer presentation
+├── docs/                              # Reference papers & project proposals
 ├── RESULTS.md                         # Detailed results analysis
 └── ARCHITECTURE.md                    # Evaluation protocol documentation
 ```
