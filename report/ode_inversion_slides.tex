@@ -1,0 +1,98 @@
+% ODE Inversion Slides — to be \input{} into presentation.tex
+% Add to graphicspath: {../results/ode inversion/}
+
+\section{ODE Inversion \& Image Editing}
+
+\begin{frame}{ODE Inversion: The Key Idea}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+CFM's ODE is \textbf{deterministic and invertible}:
+
+\vspace{0.5em}
+\textbf{Forward} (generation):
+$$z_0 \xrightarrow{t=0 \to 1} x_1$$
+
+\textbf{Backward} (inversion):
+$$x_1 \xrightarrow{t=1 \to 0} z_0$$
+
+\vspace{0.5em}
+Every real image has a unique ``address'' in noise space.
+
+\vspace{0.5em}
+\textbf{This enables:}
+\begin{itemize}
+    \item Encode any real image to noise
+    \item Edit by manipulating the noise
+    \item Decode back to get edited image
+\end{itemize}
+
+\vspace{0.5em}
+\alert{DDPM cannot do this} — its sampling is stochastic.
+\end{column}
+\begin{column}{0.42\textwidth}
+\centering
+\includegraphics[width=\textwidth]{{../results/ode inversion/inversion_trajectory}.png}\\[0.3em]
+{\scriptsize Real images dissolving into noise (t=1$\to$0)}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Reconstruction: Encode $\to$ Decode}
+\centering
+\includegraphics[width=0.85\textwidth]{{../results/ode inversion/reconstruction}.png}
+
+\vspace{0.5em}
+\begin{itemize}
+    \item Top: original CIFAR-10 images (one per class)
+    \item Middle: reconstructed via backward ODE $\to$ forward ODE
+    \item Bottom: pixel difference (5$\times$ amplified) — \textcolor{accentgreen}{\textbf{near-zero}}
+\end{itemize}
+
+The ODE inversion is \textbf{near-perfect}, confirming the model learned an accurate invertible flow.
+\end{frame}
+
+\begin{frame}{Latent Perturbations}
+\centering
+\includegraphics[width=0.9\textwidth]{{../results/ode inversion/perturbations}.png}
+
+\vspace{0.5em}
+Perturb the recovered noise: $z_0 + \sigma \cdot \epsilon$, then decode.
+
+\begin{itemize}
+    \item $\sigma = 0$: original image
+    \item $\sigma = 0.1\text{--}0.3$: subtle variations, identity preserved
+    \item $\sigma = 0.8\text{--}1.5$: content destroyed $\Rightarrow$ essentially a new random sample
+\end{itemize}
+
+Confirms the latent space is \textbf{smooth and locally stable}.
+\end{frame}
+
+\begin{frame}{Attribute Editing via Direction Vectors}
+\centering
+\includegraphics[width=0.85\textwidth]{{../results/ode inversion/attribute_editing}.png}
+
+\vspace{0.5em}
+\textbf{Method:} compute class-mean latents $\bar{z}_0$ from 50 images/class, then:
+$$z_0^{\text{edit}} = z_0 + \lambda \cdot (\bar{z}_0^{\text{target}} - \bar{z}_0^{\text{source}})$$
+
+\begin{itemize}
+    \item $\lambda = 0$: original image
+    \item $\lambda > 0$: push toward target class (e.g., horse $\to$ car)
+    \item $\lambda < 0$: push away from target class
+\end{itemize}
+
+Subtle but directional changes — limited by 32$\times$32 resolution.
+\end{frame}
+
+\begin{frame}{Real Image Interpolation}
+\centering
+\includegraphics[width=0.85\textwidth]{{../results/ode inversion/real_interpolation}.png}
+
+\vspace{0.5em}
+\textbf{Method:} encode two real images $\to$ $z_0^A$, $z_0^B$, then decode blends:
+$$z_0^{\alpha} = (1-\alpha)\,z_0^A + \alpha\,z_0^B$$
+
+Unlike random-noise interpolation, this guarantees \textbf{real images at both endpoints}.
+
+Smooth, semantically meaningful transitions through latent space.
+\end{frame}

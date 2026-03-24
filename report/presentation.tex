@@ -1,0 +1,517 @@
+\documentclass[aspectratio=169,10pt]{beamer}
+
+\usetheme{metropolis}
+\usepackage{appendixnumberbeamer}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{caption}
+\captionsetup[figure]{font=scriptsize,labelfont=scriptsize}
+
+\graphicspath{{../visualizations/}{../results/}}
+
+% Colors
+\definecolor{cfmblue}{RGB}{41,98,255}
+\definecolor{ddpmred}{RGB}{211,47,47}
+\definecolor{accentgreen}{RGB}{46,125,50}
+
+\setbeamercolor{frametitle}{bg=cfmblue!90!black,fg=white}
+\setbeamercolor{progress bar}{fg=cfmblue}
+\setbeamercolor{alerted text}{fg=ddpmred}
+
+\title{Conditional Flow Matching vs.\ Diffusion Models}
+\subtitle{A Systematic Comparison on CIFAR-10}
+\author{Ali Dor \and Elora Drouilhet}
+\institute{ENS Paris-Saclay / MVA --- Deep Learning Course}
+\date{2025}
+
+\begin{document}
+
+% ============================================================
+\begin{frame}[plain]
+\maketitle
+\end{frame}
+
+% ============================================================
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+% ============================================================
+\section{Motivation}
+
+\begin{frame}{Why Flow Matching?}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\textbf{The problem with diffusion models:}
+\begin{itemize}
+    \item DDPM needs \alert{1000 steps} to generate one image
+    \item DDIM reduces steps but quality \alert{saturates at $\sim$50}
+    \item Curved denoising paths are hard to integrate
+\end{itemize}
+
+\vspace{1em}
+\textbf{Flow matching promise:}
+\begin{itemize}
+    \item Learn \textcolor{cfmblue}{\textbf{straight}} transport paths from noise to data
+    \item ODE-based: use any solver, any \# steps
+    \item OT coupling $\Rightarrow$ nearly linear trajectories
+    \item \textcolor{accentgreen}{\textbf{Same quality, 20$\times$ fewer steps}}
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\centering
+\includegraphics[width=\textwidth]{coupling_comparison.png}\\[0.5em]
+{\scriptsize Independent vs.\ OT coupling on 2D data}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+\section{Background}
+
+\begin{frame}{DDPM: Denoising Diffusion}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\textbf{Forward process} (add noise):
+$$q(\mathbf{x}_t|\mathbf{x}_0) = \mathcal{N}\!\left(\sqrt{\bar\alpha_t}\,\mathbf{x}_0,\; (1{-}\bar\alpha_t)\mathbf{I}\right)$$
+
+\textbf{Training} (predict noise):
+$$\mathcal{L}_{\text{DDPM}} = \mathbb{E}_{t,\mathbf{x}_0,\epsilon}\left[\|\epsilon - \epsilon_\theta(\mathbf{x}_t, t)\|^2\right]$$
+
+\textbf{Sampling}: iteratively denoise $\mathbf{x}_T \to \mathbf{x}_0$
+\begin{itemize}
+    \item $T = 1000$ steps (slow!)
+    \item Stochastic reverse process
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{DDIM}: deterministic shortcut
+\begin{itemize}
+    \item Skip timesteps $\Rightarrow$ fewer steps
+    \item But: errors accumulate, saturates at $\sim$50 NFE
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\centering
+\includegraphics[width=\textwidth]{ddpm/samples/epoch_0500.png}\\[0.3em]
+{\scriptsize DDPM samples after 500 epochs}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Flow Matching: A Different Paradigm}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\textbf{Key idea}: learn a velocity field, not noise.
+
+\textbf{OT interpolation path}:
+$$\mathbf{x}_t = (1{-}t)\,\mathbf{x}_0 + t\,\mathbf{x}_1$$
+$$\mathbf{u}_t = \mathbf{x}_1 - \mathbf{x}_0 \quad \text{(constant velocity!)}$$
+
+\textbf{Training} (predict velocity):
+$$\mathcal{L}_{\text{CFM}} = \mathbb{E}_{t,\mathbf{x}_0,\mathbf{x}_1}\left[\|v_\theta(\mathbf{x}_t, t) - \mathbf{u}_t\|^2\right]$$
+
+\textbf{Sampling}: solve ODE from $t{=}0 \to 1$
+$$\frac{d\mathbf{x}}{dt} = v_\theta(\mathbf{x}_t, t)$$
+
+\begin{itemize}
+    \item \textcolor{cfmblue}{\textbf{Straight paths}} $\Rightarrow$ easy to integrate
+    \item Any ODE solver, any number of steps
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\centering
+\includegraphics[width=\textwidth]{vector_fields_2d.png}\\[0.3em]
+{\scriptsize Learned velocity fields at different $t$}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{ODE Solvers for Flow Matching}
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Solver} & \textbf{Order} & \textbf{NFE/step} & \textbf{Best for} \\
+\midrule
+Euler & 1st & 1 & Simplest baseline \\
+\textcolor{cfmblue}{\textbf{Midpoint}} & 2nd & 2 & \textcolor{cfmblue}{Low NFE (10--50)} \\
+\textcolor{accentgreen}{\textbf{RK4}} & 4th & 4 & \textcolor{accentgreen}{High NFE (100+)} \\
+\bottomrule
+\end{tabular}
+
+\vspace{1.5em}
+\textbf{Key insight}: at fixed NFE budget, higher-order solvers take fewer but more accurate steps.
+
+\vspace{0.5em}
+$\Rightarrow$ \textbf{Midpoint} is the recommended default (best quality per NFE).
+\end{frame}
+
+% ============================================================
+\section{Our Implementation}
+
+\begin{frame}{Shared Architecture}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{UNet backbone} (all models):
+\begin{itemize}
+    \item 128 base channels
+    \item Channel mult: $[1, 2, 2, 2]$
+    \item 4 attention heads
+    \item GroupNorm-32
+    \item Sinusoidal time embeddings
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Training setup}:
+\begin{itemize}
+    \item CIFAR-10 ($32 \times 32$)
+    \item Adam, lr $= 2 \times 10^{-4}$
+    \item Batch size 128
+    \item EMA decay 0.9999
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Class-conditional CFM}:
+\begin{itemize}
+    \item Modified UNet: $[1, 2, 4]$ multipliers
+    \item Learned class embeddings (10 classes)
+    \item 10\% class dropout $\Rightarrow$ CFG
+    \item 210 epochs, EMA 0.999
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Evaluation protocol}:
+\begin{itemize}
+    \item 10,000 generated samples
+    \item FID and Inception Score
+    \item NFE sweep: 10, 20, 50, 100
+    \item Google Colab (T4 / A100)
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{What Each of Us Did}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{\textcolor{cfmblue}{Ali Dor}}
+\begin{itemize}
+    \item DDPM / DDIM implementation
+    \item Training \& evaluation pipeline
+    \item All visualizations:
+    \begin{itemize}
+        \item 2D toy experiments
+        \item Generation trajectories
+        \item Latent interpolations
+    \end{itemize}
+    \item Systematic NFE/solver evaluation
+    \item Results analysis
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{\textcolor{accentgreen}{Elora Drouilhet}}
+\begin{itemize}
+    \item OT-CFM implementation
+    \item Class-conditional CFM
+    \begin{itemize}
+        \item Class embeddings
+        \item Classifier-free guidance
+    \end{itemize}
+    \item Model training \& evaluation
+    \item CFG scale analysis
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+\section{2D Toy Experiments}
+
+\begin{frame}{Learning to Transport: 2D Visualization}
+\begin{columns}[c]
+\begin{column}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{vector_fields_2d.png}\\[0.3em]
+{\scriptsize Velocity fields at $t=0.0, 0.25, 0.5, 0.75, 1.0$}
+\end{column}
+\begin{column}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{toy_2d_samples.png}\\[0.3em]
+{\scriptsize Generated 2D samples vs.\ target distribution}
+\end{column}
+\end{columns}
+
+\vspace{0.5em}
+The model learns time-varying velocity fields that smoothly transport Gaussian noise to complex multi-modal distributions.
+\end{frame}
+
+\begin{frame}{Why Optimal Transport Matters}
+\centering
+\includegraphics[width=0.75\textwidth]{coupling_comparison.png}
+
+\vspace{0.5em}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\centering
+\textbf{Independent coupling}\\
+Paths cross $\Rightarrow$ curved trajectories\\
+Harder for ODE solvers
+\end{column}
+\begin{column}{0.48\textwidth}
+\centering
+\textbf{\textcolor{cfmblue}{OT coupling}}\\
+Non-crossing, straight paths\\
+Easy to integrate accurately
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+\section{CIFAR-10 Results}
+
+\begin{frame}{Main Results: FID vs NFE}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\centering
+\scriptsize
+\begin{tabular}{@{}llrr@{}}
+\toprule
+\textbf{Method} & \textbf{Solver} & \textbf{NFE} & \textbf{FID}\,$\downarrow$ \\
+\midrule
+DDPM & DDPM & 1000 & 13.06 \\
+\midrule
+DDIM & DDIM & 10 & 22.18 \\
+DDIM & DDIM & 20 & 18.95 \\
+DDIM & DDIM & 50 & 17.96 \\
+DDIM & DDIM & 100 & \alert{18.43\,$\uparrow$} \\
+\midrule
+\textcolor{cfmblue}{OT-CFM} & Midpoint & 10 & \textbf{17.53} \\
+\textcolor{cfmblue}{OT-CFM} & Midpoint & 20 & \textbf{14.80} \\
+\textcolor{cfmblue}{OT-CFM} & Midpoint & 50 & \textbf{12.02} \\
+\textcolor{cfmblue}{OT-CFM} & Midpoint & 100 & 11.21 \\
+\textcolor{cfmblue}{OT-CFM} & RK4 & 100 & \textcolor{accentgreen}{\textbf{10.65}} \\
+\midrule
+Cond.\ CFM & Midpoint & 50 & 13.17 \\
+Cond.\ CFM & RK4 & 100 & 12.19 \\
+\bottomrule
+\end{tabular}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{Key findings:}
+
+\vspace{0.5em}
+\textcolor{accentgreen}{\textbf{Best FID: 10.65}}\\
+(OT-CFM, RK4, 100 NFE)
+
+\vspace{0.5em}
+vs.\ DDPM: 13.06 at 1000 NFE\\
+$\Rightarrow$ \textbf{20$\times$ speedup}
+
+\vspace{0.5em}
+\alert{DDIM degrades} past 50 NFE\\
+(18.43 at 100 vs.\ 17.96 at 50)
+
+\vspace{0.5em}
+OT-CFM at \textbf{20 NFE} (14.80)\\
+already beats best DDIM (17.96)
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Best Results Summary}
+\centering
+\large
+\begin{tabular}{@{}lrrll@{}}
+\toprule
+\textbf{Model} & \textbf{Best FID} & \textbf{NFE} & \textbf{Solver} & \textbf{ms/img} \\
+\midrule
+DDPM & 13.06 & 1000 & DDPM & 205.0 \\
+DDIM & 17.96 & 50 & DDIM & 10.5 \\
+\rowcolor{cfmblue!10}
+\textcolor{cfmblue}{\textbf{OT-CFM}} & \textcolor{cfmblue}{\textbf{10.65}} & \textcolor{cfmblue}{\textbf{100}} & \textcolor{cfmblue}{\textbf{RK4}} & \textcolor{cfmblue}{\textbf{20.7}} \\
+Cond.\ CFM & 12.19 & 100 & RK4 & 24.3 \\
+\bottomrule
+\end{tabular}
+
+\vspace{1.5em}
+\begin{tikzpicture}
+\draw[cfmblue,ultra thick,->] (0,0) -- (10,0);
+\node[above,cfmblue] at (5,0.1) {\textbf{10$\times$ fewer steps, better quality}};
+\node[below,ddpmred] at (1,0) {\small DDPM};
+\node[below,ddpmred] at (1,-0.4) {\small 1000 NFE};
+\node[below,cfmblue] at (9,0) {\small OT-CFM};
+\node[below,cfmblue] at (9,-0.4) {\small 100 NFE};
+\end{tikzpicture}
+\end{frame}
+
+\begin{frame}{Generation Quality: Samples}
+\begin{columns}[c]
+\begin{column}{0.48\textwidth}
+\centering
+\includegraphics[width=0.95\textwidth]{cfm/samples/epoch_0500.png}\\[0.3em]
+{\scriptsize OT-CFM unconditional samples (epoch 500)}
+\end{column}
+\begin{column}{0.48\textwidth}
+\centering
+\includegraphics[width=0.95\textwidth]{ddpm/samples/epoch_0500.png}\\[0.3em]
+{\scriptsize DDPM samples (epoch 500)}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Latent Interpolation}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{interpolation_cfm.png}\\[0.3em]
+{\scriptsize OT-CFM interpolation}
+\end{column}
+\begin{column}{0.48\textwidth}
+\centering
+\includegraphics[width=\textwidth]{interpolation_ddim.png}\\[0.3em]
+{\scriptsize DDIM interpolation}
+\end{column}
+\end{columns}
+
+\vspace{0.5em}
+Both models support smooth latent interpolation, but CFM transitions are notably smoother due to the straight OT paths.
+\end{frame}
+
+\begin{frame}{Class-Conditional Generation with CFG}
+\centering
+\includegraphics[width=0.8\textwidth]{conditional_cfg_comparison.png}
+
+\vspace{0.5em}
+Classifier-free guidance (CFG) controls the diversity--fidelity tradeoff. Higher scale $\Rightarrow$ sharper, more class-consistent images at the cost of diversity.
+\end{frame}
+
+% ============================================================
+\section{Analysis}
+
+\begin{frame}{Why Does Flow Matching Win?}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{\textcolor{ddpmred}{Diffusion (DDPM/DDIM)}}
+\begin{itemize}
+    \item Learns noise prediction $\epsilon_\theta$
+    \item Curved denoising paths
+    \item DDIM: deterministic but approximate
+    \item Quality saturates at $\sim$50 steps
+    \item \alert{FID degrades past 50 NFE}
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{\textcolor{cfmblue}{Flow Matching (OT-CFM)}}
+\begin{itemize}
+    \item Learns velocity field $v_\theta$
+    \item \textcolor{cfmblue}{Straight OT paths}
+    \item Exact ODE formulation
+    \item Quality \textcolor{accentgreen}{keeps improving} with NFE
+    \item \textcolor{accentgreen}{Best at every NFE budget}
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{1em}
+\centering
+\textbf{Root cause}: OT-CFM's straight paths are easy for ODE solvers.\\
+DDIM inherits errors from stochastic training $\Rightarrow$ error accumulation.
+\end{frame}
+
+\begin{frame}{Solver Analysis}
+\centering
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& \multicolumn{4}{c}{\textbf{FID at NFE budget}} \\
+\cmidrule(l){2-5}
+\textbf{Solver} & 10 & 20 & 50 & 100 \\
+\midrule
+Euler & 21.07 & 16.69 & 13.78 & 13.19 \\
+\textcolor{cfmblue}{\textbf{Midpoint}} & \textcolor{cfmblue}{\textbf{17.53}} & \textcolor{cfmblue}{\textbf{14.80}} & \textcolor{cfmblue}{\textbf{12.02}} & 11.21 \\
+\textcolor{accentgreen}{\textbf{RK4}} & --- & 18.01 & --- & \textcolor{accentgreen}{\textbf{10.65}} \\
+\bottomrule
+\end{tabular}
+
+\vspace{1em}
+\begin{itemize}
+    \item \textcolor{cfmblue}{\textbf{Midpoint}}: best at low NFE (10--50). 2nd order, 2 NFE/step.
+    \item \textcolor{accentgreen}{\textbf{RK4}}: best at high NFE (100+). 4th order but only 25 steps at NFE=100.
+    \item \textbf{Euler}: simplest, worst per-NFE quality. Gap narrows at high NFE.
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Recommendation}: Use Midpoint for fast sampling, RK4 for maximum quality.
+\end{frame}
+
+\begin{frame}{DDIM Saturation Effect}
+\centering
+\large
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+& NFE=10 & NFE=20 & NFE=50 & NFE=100 \\
+\midrule
+\textcolor{ddpmred}{DDIM} & 22.18 & 18.95 & \textbf{17.96} & \alert{18.43\,$\uparrow$} \\
+\textcolor{cfmblue}{OT-CFM} & 17.53 & 14.80 & 12.02 & \textcolor{accentgreen}{\textbf{11.21}\,$\downarrow$} \\
+\bottomrule
+\end{tabular}
+
+\vspace{1.5em}
+\begin{itemize}
+    \item DDIM: FID \alert{increases} from 50 to 100 NFE (gets worse!)
+    \item OT-CFM: FID \textcolor{accentgreen}{consistently decreases} with more steps
+    \item DDIM trained with stochastic DDPM objective $\Rightarrow$ deterministic sampling accumulates errors
+    \item CFM trained directly on the velocity field $\Rightarrow$ no mismatch
+\end{itemize}
+\end{frame}
+
+% ============================================================
+\section{Conclusion}
+
+\begin{frame}{Key Takeaways}
+\begin{enumerate}
+    \item \textbf{Flow matching $>$ diffusion} at every NFE budget on CIFAR-10
+    \vspace{0.5em}
+    \item \textbf{20$\times$ speedup}: OT-CFM matches DDPM quality in $\sim$50 steps vs.\ 1000
+    \vspace{0.5em}
+    \item \textbf{Best FID: 10.65} (OT-CFM + RK4 at 100 NFE)
+    \vspace{0.5em}
+    \item \textbf{Midpoint solver} recommended for low-NFE regimes
+    \vspace{0.5em}
+    \item \textbf{DDIM saturates}---cannot match CFM regardless of steps
+    \vspace{0.5em}
+    \item \textbf{Class conditioning + CFG} is an orthogonal improvement axis
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Limitations \& Future Work}
+\textbf{Limitations:}
+\begin{itemize}
+    \item Single dataset: CIFAR-10 at $32 \times 32$
+    \item No confidence intervals (single runs)
+    \item Conditional model undertrained (210 vs.\ 500 epochs)
+\end{itemize}
+
+\vspace{1em}
+\textbf{Future directions:}
+\begin{itemize}
+    \item Scale to higher resolutions (64$\times$64, 256$\times$256)
+    \item Explore $\sigma_{\min}$ and advanced OT solvers
+    \item Adaptive step-size ODE solvers
+    \item Combine with latent diffusion / VAE framework
+\end{itemize}
+\end{frame}
+
+\begin{frame}[plain]
+\centering
+\vfill
+{\Huge\bfseries Thank you!}\\[1.5em]
+{\large Questions?}\\[2em]
+{\small Ali Dor \& Elora Drouilhet}\\
+{\small ENS Paris-Saclay / MVA}
+\vfill
+\end{frame}
+
+\end{document}
