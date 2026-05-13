@@ -26,12 +26,11 @@
 \pagestyle{fancy}
 
 % Store abstract text, then render title+abstract together in \twocolumn[]
-\newcommand{\@neuripsabstract}{}
+\newsavebox{\@neuripsabstractbox}
 \renewenvironment{abstract}{%
-  \global\setbox\@tempboxa\vbox\bgroup\small%
+  \global\setbox\@neuripsabstractbox\vbox\bgroup\small%
 }{%
   \egroup%
-  \global\let\@neuripsabstractbox\@tempboxa%
 }
 
 % Title formatting — spans both columns, includes abstract
