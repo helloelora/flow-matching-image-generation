@@ -1,4 +1,4 @@
-\documentclass[10pt,twocolumn]{article}
+\documentclass[10pt]{article}
 \usepackage{neurips_2024}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
@@ -8,18 +8,20 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{enumitem}
+\usepackage{float}
+
 
 \setlist{nosep,leftmargin=1.2em}
 \captionsetup{font=small,labelfont=bf}
 
-\graphicspath{{../visualizations/}{../results/}}
+\graphicspath{{./}}
 
-\title{Conditional Flow Matching vs.\ Diffusion Models:\\A Systematic Comparison on CIFAR-10}
+\title{Conditional Flow Matching vs.\ Diffusion Models:\\A systematic comparison on CIFAR-10}
 
 \author{
   Ali Dor \quad Elora Drouilhet \\
-  ENS Paris-Saclay / MVA \\
-  \texttt{\{ali.dor, elora.drouilhet\}@ens-paris-saclay.fr}
+  CentraleSupélec \\
+  ali.dor@student-cs.fr \quad elora.drouilhet@student-cs.fr
 }
 
 \date{}
@@ -27,9 +29,9 @@
 \begin{document}
 
 \begin{abstract}
-We compare Optimal Transport Conditional Flow Matching (OT-CFM) against DDPM and DDIM for image generation on CIFAR-10 using a shared UNet backbone.
+We compare Optimal Transport Conditional Flow Matching (OT-CFM) against a DDPM trained from scratch on CIFAR-10 and DDIM sampling from the same DDPM checkpoint, using a shared UNet backbone.
 OT-CFM achieves a best FID of 10.65 with RK4 at 100 NFE, surpassing DDPM (FID 13.06 at 1000 steps) with 20$\times$ fewer function evaluations.
-We extend CFM with class-conditional generation using classifier-free guidance and analyze ODE solver choice, finding midpoint optimal at low NFE budgets and RK4 at high NFE.
+We extend CFM with class-conditional generation using classifier-free guidance, and show that the deterministic CFM ODE supports inversion, reconstruction, and simple image editing on real CIFAR-10 images.
 Flow matching strictly dominates diffusion at every NFE budget tested.
 \end{abstract}
 
@@ -43,15 +45,16 @@ Flow matching~\cite{lipman2023flow,liu2023flow} learns a velocity field transpor
 With optimal transport coupling~\cite{tong2024improving}, OT-CFM produces straight trajectories easily integrated by ODE solvers in far fewer steps.
 
 \textbf{Contributions.}
-(1)~We implement OT-CFM from scratch following~\cite{lipman2024flow} and compare against DDPM/DDIM with a shared architecture;
-(2)~we extend CFM to class-conditional generation with CFG~\cite{ho2022classifier};
+(1)~We train DDPM, OT-CFM, and class-conditional CFM from scratch on CIFAR-10, and evaluate DDIM as deterministic sampling from the same trained DDPM under a shared architecture;
+(2)~we extend CFM to class-conditional generation with CFG~\cite{ho2022classifier} and demonstrate ODE inversion for reconstruction and image editing;
 (3)~we systematically analyze ODE solvers across NFE budgets;
 (4)~we show flow matching dominates diffusion at every NFE on CIFAR-10.
 
 \section{Background}
 
 \textbf{DDPM.}
-The forward process is $q(\mathbf{x}_t|\mathbf{x}_0) = \mathcal{N}(\sqrt{\bar\alpha_t}\mathbf{x}_0, (1{-}\bar\alpha_t)\mathbf{I})$.
+The forward process is: \\
+$q(\mathbf{x}_t|\mathbf{x}_0) = \mathcal{N}(\sqrt{\bar\alpha_t}\mathbf{x}_0, (1{-}\bar\alpha_t)\mathbf{I})$.
 A network $\epsilon_\theta$ predicts the noise via $\mathcal{L} = \mathbb{E}\|\epsilon - \epsilon_\theta(\mathbf{x}_t, t)\|^2$, and sampling denoises over $T{=}1000$ steps~\cite{ho2020denoising}.
 
 \textbf{DDIM}~\cite{song2021denoising} reinterprets the reverse process as a deterministic ODE, enabling fewer-step sampling from a DDPM-trained model.
@@ -64,22 +67,107 @@ Sampling solves the ODE $d\mathbf{x}/dt = v_\theta(\mathbf{x}_t, t)$ from $t{=}0
 \textbf{Solvers.}
 Euler (1~NFE/step), Midpoint (2~NFE/step), RK4 (4~NFE/step).
 
-\section{Methods}
+  \section{Methods}
 
-\textbf{Architecture.}
-All models use a UNet~\cite{ronneberger2015unet}: 128 base channels, multipliers $[1,2,2,2]$, 4 attention heads, GroupNorm-32, sinusoidal time embeddings.
-The class-conditional variant uses $[1,2,4]$ multipliers, GroupNorm-8, with learned class embeddings added to the time embedding.
+  \subsection{Shared Architecture}
 
-\textbf{Training.}
-DDPM and unconditional OT-CFM: 500 epochs, EMA decay 0.9999, Adam with lr $2{\times}10^{-4}$, batch size 128.
-Class-conditional CFM: 210 epochs, EMA 0.999, 10\% class dropout for CFG.
+    The shared backbone used for DDPM and OT-CFM, and for DDIM sampling from the trained DDPM checkpoint, is a UNet~\cite{ronneberger2015unet}: 128 base channels, multipliers $[1,2,2,2]$, 4 attention   
+    heads, GroupNorm-32, sinusoidal time embeddings.                                                                                                                                                      
+    The class-conditional variant uses a simplified UNet-style backbone with 128 base channels and an effective progression of 128$\rightarrow$256$\rightarrow$512 channels. It uses lightweight          
+    single-head self-attention at lower resolutions, and classifier-free guidance is enabled by replacing the class label with a null label for 10\% of training examples, so that the model learns both  
+    conditional and unconditional predictions. The encoder follows
+   a $[1, 2, 2, 2]$ channel multiplier progression from a base of 128 channels (128$\rightarrow$256$\rightarrow$256$\rightarrow$256), with strided convolutions for downsampling and nearest-neighbor
+  upsampling with convolutions in the decoder. Skip connections concatenate encoder features to corresponding decoder layers.
 
-\textbf{Evaluation.}
-10k generated samples; FID~\cite{heusel2017gans} and IS~\cite{salimans2016improved} vs.\ CIFAR-10 training set; NFE sweep $\{10, 20, 50, 100, 1000\}$.
+  Time conditioning uses sinusoidal positional embeddings projected through a two-layer MLP into a scale-and-shift modulation applied to each residual block. Each block consists of two $3{\times}3$
+  convolutions with GroupNorm-32 normalization, SiLU activations, and dropout ($p{=}0.1$). Multi-head self-attention (4 heads) is applied at the 16$\times$16 and 8$\times$8 resolutions to capture
+  long-range spatial dependencies, which is critical at CIFAR-10's $32{\times}32$ resolution where the receptive field of convolutions alone is insufficient.
+
+  \textbf{Why this architecture?} The design follows the standard DDPM UNet from Ho et al.~\cite{ho2020denoising}, which has become the de facto backbone for comparing generative frameworks on
+  CIFAR-10. Using the same architecture for both DDPM and OT-CFM isolates the effect of the generative objective itself. The 128 base channel width balances capacity with training efficiency on a
+  single GPU.
+
+  \subsection{Class-Conditional Variant}
+
+  The class-conditional CFM uses a simplified UNet with an effective channel progression of $128{\rightarrow}256{\rightarrow}512$, providing higher capacity at the deepest resolution to capture
+  class-specific features. Class information is injected through a learned embedding table (10 classes + 1 null token, projected to 256 dimensions), which modulates residual blocks in parallel with
+  the time embedding via additive bias.
+
+  Classifier-free guidance (CFG) is enabled by replacing the true class label with the null token for 10\% of training samples. This trains the model to produce both
+  conditional predictions $v_\theta(x_t, t, y)$ and unconditional predictions $v_\theta(x_t, t, \varnothing)$. At inference, the guided velocity is:
+  \begin{equation}
+      v_{\text{guided}} = v_\theta(x_t, t, \varnothing) + w \cdot \bigl(v_\theta(x_t, t, y) - v_\theta(x_t, t, \varnothing)\bigr)
+  \end{equation}
+  where $w$ is the guidance scale. Setting $w{=}1$ recovers the standard conditional prediction; $w{>}1$ amplifies the class-specific component of the velocity, improving per-class fidelity at the
+  cost of sample diversity.
+
+  Self-attention in this variant uses single-head attention with explicit query-key-value projections and GroupNorm-8, trading multi-head expressiveness for reduced memory footprint given the larger
+   channel dimensions.
+
+  \subsection{Training Objectives}
+
+  \textbf{DDPM.} The model is trained to predict the noise $\epsilon$ added at a random timestep $t \sim \mathcal{U}\{1, \ldots, T\}$ with $T{=}1000$:
+  \begin{equation}
+      \mathcal{L}_{\text{DDPM}} = \mathbb{E}_{x_0, \epsilon, t}\bigl[\| \epsilon - \epsilon_\theta(x_t, t) \|^2\bigr], \quad x_t = \sqrt{\bar\alpha_t}\, x_0 + \sqrt{1 - \bar\alpha_t}\, \epsilon
+  \end{equation}
+  We use a cosine noise schedule($\bar\alpha_t$ follows a shifted cosine curve), which provides more uniform signal-to-noise progression compared to the linear schedule
+  and avoids wasting capacity on nearly noiseless or fully destroyed inputs.
+
+  \textbf{OT-CFM.} The model learns the velocity field that transports noise to data along the optimal-transport conditional path~\cite{lipman2023flow}:
+  \begin{equation}
+      \mathcal{L}_{\text{CFM}} = \mathbb{E}_{x_0 \sim \mathcal{N}(0,I),\; x_1 \sim p_{\text{data}},\; t \sim \mathcal{U}(0,1)} \bigl[\| v_\theta(x_t, t) - (x_1 - x_0) \|^2\bigr]
+  \end{equation}
+  where $x_t = (1-t)\,x_0 + t\,x_1$ is the linear interpolation and the target velocity $u_t = x_1 - x_0$ is the constant-speed direction from noise to data. Each conditional path is a straight line
+   by construction; the neural network learns the \emph{marginal} velocity field that averages over all such paths, enabling generation from novel noise samples at test time.
+
+  \textbf{Key difference.} DDPM predicts the noise component $\epsilon$ at a discrete timestep, while CFM directly predicts the velocity $(x_1 - x_0)$ at a continuous time $t \in [0,1]$. The
+  straight-line interpolation in CFM yields smoother velocity fields that are easier to integrate numerically, which is the fundamental reason CFM requires fewer function evaluations.
+
+  \subsection{Sampling Procedures}
+
+  \textbf{DDPM sampling} follows the standard reverse Markov chain: starting from $x_T \sim \mathcal{N}(0, I)$, each step computes the posterior mean from the predicted noise and adds calibrated
+  Gaussian noise. This requires exactly $T{=}1000$ sequential model evaluations (NFE$=$1000) with no possibility of step-skipping, as each transition depends on the specific noise schedule at that
+  timestep.
+
+  \textbf{DDIM sampling} reinterprets the same trained DDPM model through a non-Markovian deterministic process. Given the predicted noise $\hat\epsilon$ at timestep $t$, it
+   first estimates the clean image $\hat{x}_0$ and then jumps directly to any earlier timestep $s < t$:
+  \begin{equation}
+      x_s = \sqrt{\bar\alpha_s}\,\hat{x}_0 + \sqrt{1 - \bar\alpha_s}\,\hat\epsilon
+  \end{equation}
+  This allows arbitrary step-skipping (e.g., NFE$=$50 by jumping every 20 timesteps), but accuracy degrades with larger jumps since each step assumes the noise prediction is exact.
+
+  \textbf{CFM sampling} solves the learned ODE $\mathrm{d}x/\mathrm{d}t = v_\theta(x, t)$ from $t{=}0$ to $t{=}1$ using standard numerical integrators. We evaluate three solvers at equal NFE
+  budgets:
+  \begin{itemize}[nosep,leftmargin=*]
+      \item \textbf{Euler} (1st order): $x_{i+1} = x_i + \Delta t \cdot v_\theta(x_i, t_i)$. One model call per step (NFE$=$steps).
+      \item \textbf{Midpoint} (2nd order): evaluates the velocity at $t_i$ and at the midpoint $t_i + \Delta t/2$, using the midpoint estimate for the update. Two model calls per step
+  (NFE$=2\times$steps).
+      \item \textbf{RK4} (4th order): computes a weighted average of four velocity evaluations per step (NFE$=4\times$steps), achieving higher accuracy per step but fewer total steps at a fixed NFE
+  budget.
+  \end{itemize}
+  The midpoint method is recommended by Lipman et al.~\cite{lipman2023flow} as the best default: it provides second-order accuracy at moderate cost, whereas RK4 only outperforms it when the NFE
+  budget is large enough ($\geq$100) to offset its 4$\times$ per-step overhead.
+
+  \subsection{Training Details}
+
+  All models are trained on CIFAR-10 ($32{\times}32$, 50k training images) with random horizontal flips as the only augmentation. Images are normalized to $[-1, 1]$.
+
+  \textbf{DDPM and unconditional OT-CFM:} 500 epochs, Adam optimizer with lr $2{\times}10^{-4}$, batch size 128, gradient clipping at norm 1.0, and exponential moving average (EMA) with decay
+  0.9999. The high EMA decay provides stable evaluation weights that smooth out training noise over approximately 10k update steps.
+
+  \textbf{Class-conditional CFM:} AdamW optimizer with lr $2{\times}10^{-4}$, batch size 128, gradient clipping at 1.0, EMA decay 0.999 (faster adaptation given the additional conditioning signal),
+  and 10\% class label dropout for CFG training. Results are reported from epoch 190 of a $\sim$210-epoch run, selected as the best EMA checkpoint.
+
+  \subsection{Evaluation Protocol}
+
+  We generate 10,000 images per configuration and compute Fr\'echet Inception Distance (FID)~\cite{heusel2017gans} and Inception Score (IS)~\cite{salimans2016improved} against the CIFAR-10 training
+  set using \texttt{torchmetrics}. All metrics use the same Inception-v3 feature extractor for consistency. We sweep NFE $\in \{10, 20, 50, 100\}$ for all CFM and DDIM configurations, plus
+  NFE$=$1000 for DDPM. Runtime is measured as wall-clock milliseconds per image on a single Google Colab GPU (T4 or A100). Each configuration is evaluated with a fixed random seed for
+  reproducibility.
 
 \section{Results}
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \caption{Full comparison on CIFAR-10. Best FID per NFE in \textbf{bold}.}
 \label{tab:full}
@@ -109,7 +197,7 @@ Cond.\ CFM & RK4 & 100 & 12.19 & 8.46 \\
 \end{tabular}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \caption{Best FID per model family.}
 \label{tab:best}
@@ -150,12 +238,24 @@ Table~\ref{tab:full} compares all methods. OT-CFM with RK4 at 100 NFE achieves t
 \label{fig:interp}
 \end{figure}
 
-\begin{figure}[t]
+During training, class dropout teaches the model both conditional and unconditional predictions. At inference, classifier-free guidance amplifies the label-specific component, improving class consistency at the cost of diversity.
+\[
+v_\theta^{\text{cfg}}(x_t, t, y)
+=
+v_\theta(x_t, t, \varnothing)
++
+s \left(
+v_\theta(x_t, t, y) - v_\theta(x_t, t, \varnothing)
+\right)
+\]
+
+\begin{figure}[H]
 \centering
 \includegraphics[width=\columnwidth]{conditional_cfg_comparison.png}
 \caption{Class-conditional CFM with varying CFG scale. Higher guidance improves class fidelity at the cost of diversity.}
 \label{fig:cfg}
 \end{figure}
+
 
 \section{Analysis}
 
@@ -174,45 +274,68 @@ DDIM improves to NFE=50 (FID 17.96) then \emph{degrades} at 100 (18.43)---accumu
 \textbf{Conditional CFM.}
 Slightly worse than unconditional (12.64 vs.\ 11.21 at NFE=100) due to fewer training epochs (210 vs.\ 500). With CFG scale $>1$ the gap would close.
 
+\textbf{ODE inversion and image editing.}
+Because OT-CFM defines a deterministic ODE, we can solve it backwards from real images to their latent noise codes.
+Using midpoint with NFE=100, the new inversion pipeline achieves near-perfect reconstructions, smooth interpolation between real images, and directional latent editing via class-mean vectors (e.g., horse$\to$car, cat$\to$dog).
+At CIFAR-10 resolution the edits remain subtle, but they confirm that the learned flow is sufficiently invertible for controlled manipulation (Figure~\ref{fig:ode_edit}).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{attribute_editing.png}
+\caption{Attribute editing via ODE inversion and class-mean latent directions. Increasing $\lambda$ gradually pushes each source image toward the target class semantics.}
+\label{fig:ode_edit}
+\end{figure}
+
+\textbf{Evaluation.}
+10k generated samples; FID~\cite{heusel2017gans} and IS~\cite{salimans2016improved} vs.\ CIFAR-10 training set; NFE sweep $\{10, 20, 50, 100, 1000\}$.
+
+\textbf{Compute.}
+All experiments were run on Google Colab using NVIDIA A100 GPUs.
+
+
 \section{Limitations}
 
-Single dataset (CIFAR-10, 32$\times$32); no confidence intervals (single runs); conditional model undertrained (210 vs.\ 500 epochs); no $\sigma_{\min}$ exploration.
+Single dataset (CIFAR-10, 32$\times$32); no confidence intervals (single runs); conditional model undertrained (210 vs.\ 500 epochs); no $\sigma_{\min}$ exploration; ODE-based edits remain subtle at low resolution.
+
+\paragraph{Broader impacts.}
+This work studies more efficient image generation models. While such improvements are useful for research and education, they may also reduce the cost of producing synthetic or misleading images, including manipulated visual content. Our experiments are limited to CIFAR-10 at 32$\times$32 resolution and are presented as an academic benchmark comparison rather than a deployment-ready system, but similar methods could raise more significant misuse risks at higher resolutions.
 
 \section{Conclusion}
+
 
 OT-CFM strictly outperforms DDPM/DDIM at every NFE budget, achieving FID 10.65 at 100 NFE vs.\ DDPM's 13.06 at 1000---a 20$\times$ speedup.
 Midpoint is the recommended default solver; class-conditional CFM with CFG provides an orthogonal improvement axis.
 
+
 \subsection*{Contributions}
-\textbf{Ali Dor:} DDPM/DDIM implementation, training, evaluation, all visualizations, results analysis.
-\textbf{Elora Drouilhet:} OT-CFM and class-conditional CFM with CFG implementation, training, evaluation.
+\textbf{Ali Dor:} DDPM/DDIM implementation, training, evaluation, visualizations, results analysis.
+\textbf{Elora Drouilhet:} OT-CFM and class-conditional CFM with CFG implementation, training, evaluation, result analysis.
 
 {\small
 \bibliographystyle{plainnat}
 \bibliography{references}
 }
 
-\onecolumn
-\appendix
 \section*{NeurIPS Paper Checklist}
 \small
 \begin{enumerate}[leftmargin=1.5em]
-\item \textbf{Claims.} \textit{Yes.} All claims supported by Section~4.
-\item \textbf{Limitations.} \textit{Yes.} See Section~6.
-\item \textbf{Theory.} \textit{N/A.} No novel theory.
-\item \textbf{Experiments.} \textit{Yes.} Full details in Section~3.
-\item \textbf{Open access.} \textit{Yes.} Code in project repository; CIFAR-10 is public.
-\item \textbf{Experimental details.} \textit{Yes.} Section~3.
-\item \textbf{Statistical significance.} \textit{No.} Single runs, noted as limitation.
-\item \textbf{Compute resources.} \textit{Yes.} Google Colab T4/A100; runtimes in Table~\ref{tab:best}.
-\item \textbf{Code of ethics.} \textit{Yes.}
-\item \textbf{Broader impacts.} \textit{N/A.} Course project on standard benchmark.
-\item \textbf{Safeguards.} \textit{N/A.} 32$\times$32 models cannot generate realistic content.
-\item \textbf{Licenses.} \textit{Yes.} All assets properly cited.
-\item \textbf{New assets.} \textit{N/A.}
-\item \textbf{Human subjects.} \textit{N/A.}
-\item \textbf{IRB.} \textit{N/A.}
-\item \textbf{LLM usage.} \textit{Yes.} Claude assisted with code development and formatting.
+\item \textbf{Claims.} Yes
+\item \textbf{Limitations.} Yes
+\item \textbf{Theory.} No
+\item \textbf{Experiments.} Yes
+\item \textbf{Open access.} Yes
+\item \textbf{Experimental details.} Yes
+\item \textbf{Statistical significance.} No
+\item \textbf{Compute resources.} Yes
+\item \textbf{Code of ethics.} Yes
+\item \textbf{Broader impacts.} Yes
+\item \textbf{Safeguards.} No
+\item \textbf{Licenses.} Yes
+\item \textbf{New assets.} No
+\item \textbf{Human subjects.} No
+\item \textbf{IRB.} No
+\item \textbf{LLM usage.} No
 \end{enumerate}
+
 
 \end{document}

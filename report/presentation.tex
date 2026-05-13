@@ -5,7 +5,7 @@
 \usepackage{booktabs}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
-\usepackage{xcolor}
+\usepackage[table]{xcolor}
 \usepackage{tikz}
 \usepackage{caption}
 \captionsetup[figure]{font=scriptsize,labelfont=scriptsize}
@@ -21,8 +21,8 @@
 \setbeamercolor{progress bar}{fg=cfmblue}
 \setbeamercolor{alerted text}{fg=ddpmred}
 
-\title{Conditional Flow Matching vs.\ Diffusion Models}
-\subtitle{A Systematic Comparison on CIFAR-10}
+\title{Conditional flow matching vs.\ diffusion models}
+\subtitle{A systematic comparison on CIFAR-10}
 \author{Ali Dor \and Elora Drouilhet}
 \institute{ENS Paris-Saclay / MVA --- Deep Learning Course}
 \date{2025}
@@ -42,7 +42,7 @@
 % ============================================================
 \section{Motivation}
 
-\begin{frame}{Why Flow Matching?}
+\begin{frame}{Why flow matching?}
 \begin{columns}[T]
 \begin{column}{0.55\textwidth}
 \textbf{The problem with diffusion models:}
@@ -72,7 +72,7 @@
 % ============================================================
 \section{Background}
 
-\begin{frame}{DDPM: Denoising Diffusion}
+\begin{frame}{DDPM: denoising diffusion}
 \begin{columns}[T]
 \begin{column}{0.55\textwidth}
 \textbf{Forward process} (add noise):
@@ -85,12 +85,14 @@ $$\mathcal{L}_{\text{DDPM}} = \mathbb{E}_{t,\mathbf{x}_0,\epsilon}\left[\|\epsil
 \begin{itemize}
     \item $T = 1000$ steps (slow!)
     \item Stochastic reverse process
+    \item \textbf{Trained from scratch on CIFAR-10}
 \end{itemize}
 
 \vspace{0.5em}
 \textbf{DDIM}: deterministic shortcut
 \begin{itemize}
     \item Skip timesteps $\Rightarrow$ fewer steps
+    \item Uses the same trained DDPM checkpoint
     \item But: errors accumulate, saturates at $\sim$50 NFE
 \end{itemize}
 \end{column}
@@ -102,7 +104,7 @@ $$\mathcal{L}_{\text{DDPM}} = \mathbb{E}_{t,\mathbf{x}_0,\epsilon}\left[\|\epsil
 \end{columns}
 \end{frame}
 
-\begin{frame}{Flow Matching: A Different Paradigm}
+\begin{frame}{Flow matching: a different paradigm}
 \begin{columns}[T]
 \begin{column}{0.55\textwidth}
 \textbf{Key idea}: learn a velocity field, not noise.
@@ -130,7 +132,7 @@ $$\frac{d\mathbf{x}}{dt} = v_\theta(\mathbf{x}_t, t)$$
 \end{columns}
 \end{frame}
 
-\begin{frame}{ODE Solvers for Flow Matching}
+\begin{frame}{ODE solvers for flow matching}
 \centering
 \begin{tabular}{lccc}
 \toprule
@@ -150,9 +152,9 @@ $\Rightarrow$ \textbf{Midpoint} is the recommended default (best quality per NFE
 \end{frame}
 
 % ============================================================
-\section{Our Implementation}
+\section{Our implementation}
 
-\begin{frame}{Shared Architecture}
+\begin{frame}{Shared architecture}
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 \textbf{UNet backbone} (all models):
@@ -194,13 +196,14 @@ $\Rightarrow$ \textbf{Midpoint} is the recommended default (best quality per NFE
 \end{columns}
 \end{frame}
 
-\begin{frame}{What Each of Us Did}
+\begin{frame}{What each of us did}
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 \textbf{\textcolor{cfmblue}{Ali Dor}}
 \begin{itemize}
     \item DDPM / DDIM implementation
     \item Training \& evaluation pipeline
+    \item ODE inversion \& image editing
     \item All visualizations:
     \begin{itemize}
         \item 2D toy experiments
@@ -228,9 +231,9 @@ $\Rightarrow$ \textbf{Midpoint} is the recommended default (best quality per NFE
 \end{frame}
 
 % ============================================================
-\section{2D Toy Experiments}
+\section{2D toy experiments}
 
-\begin{frame}{Learning to Transport: 2D Visualization}
+\begin{frame}{Learning to transport: 2D visualization}
 \begin{columns}[c]
 \begin{column}{0.48\textwidth}
 \centering
@@ -248,7 +251,7 @@ $\Rightarrow$ \textbf{Midpoint} is the recommended default (best quality per NFE
 The model learns time-varying velocity fields that smoothly transport Gaussian noise to complex multi-modal distributions.
 \end{frame}
 
-\begin{frame}{Why Optimal Transport Matters}
+\begin{frame}{Why optimal transport matters}
 \centering
 \includegraphics[width=0.75\textwidth]{coupling_comparison.png}
 
@@ -270,9 +273,9 @@ Easy to integrate accurately
 \end{frame}
 
 % ============================================================
-\section{CIFAR-10 Results}
+\section{CIFAR-10 results}
 
-\begin{frame}{Main Results: FID vs NFE}
+\begin{frame}{Main results: FID vs NFE}
 \begin{columns}[T]
 \begin{column}{0.55\textwidth}
 \centering
@@ -321,7 +324,7 @@ already beats best DDIM (17.96)
 \end{columns}
 \end{frame}
 
-\begin{frame}{Best Results Summary}
+\begin{frame}{Best results summary}
 \centering
 \large
 \begin{tabular}{@{}lrrll@{}}
@@ -347,7 +350,7 @@ Cond.\ CFM & 12.19 & 100 & RK4 & 24.3 \\
 \end{tikzpicture}
 \end{frame}
 
-\begin{frame}{Generation Quality: Samples}
+\begin{frame}{Generation quality: samples}
 \begin{columns}[c]
 \begin{column}{0.48\textwidth}
 \centering
@@ -362,7 +365,7 @@ Cond.\ CFM & 12.19 & 100 & RK4 & 24.3 \\
 \end{columns}
 \end{frame}
 
-\begin{frame}{Latent Interpolation}
+\begin{frame}{Latent interpolation}
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 \centering
@@ -380,7 +383,7 @@ Cond.\ CFM & 12.19 & 100 & RK4 & 24.3 \\
 Both models support smooth latent interpolation, but CFM transitions are notably smoother due to the straight OT paths.
 \end{frame}
 
-\begin{frame}{Class-Conditional Generation with CFG}
+\begin{frame}{Class-conditional generation with CFG}
 \centering
 \includegraphics[width=0.8\textwidth]{conditional_cfg_comparison.png}
 
@@ -389,9 +392,105 @@ Classifier-free guidance (CFG) controls the diversity--fidelity tradeoff. Higher
 \end{frame}
 
 % ============================================================
+\section{ODE inversion \& image editing}
+
+\begin{frame}{ODE inversion: The key idea}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+CFM's ODE is \textbf{deterministic and invertible}:
+
+\vspace{0.5em}
+\textbf{Forward} (generation):
+$$z_0 \xrightarrow{t=0 \to 1} x_1$$
+
+\textbf{Backward} (inversion):
+$$x_1 \xrightarrow{t=1 \to 0} z_0$$
+
+\vspace{0.5em}
+Every real image has a unique ``address'' in noise space.
+
+\vspace{0.5em}
+\textbf{This enables:}
+\begin{itemize}
+    \item Encode any real image to noise
+    \item Edit by manipulating the noise
+    \item Decode back to get edited image
+\end{itemize}
+
+\vspace{0.5em}
+\alert{DDPM cannot do this} - its sampling is stochastic.
+\end{column}
+\begin{column}{0.42\textwidth}
+\centering
+\includegraphics[width=\textwidth]{inversion_trajectory.png}\\[0.3em]
+{\scriptsize Real images dissolving into noise (t=1$\to$0)}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Reconstruction: encode $\to$ decode}
+\centering
+\includegraphics[width=0.85\textwidth]{reconstruction.png}
+
+\vspace{0.5em}
+\begin{itemize}
+    \item Top: original CIFAR-10 images (one per class)
+    \item Middle: reconstructed via backward ODE $\to$ forward ODE
+    \item Bottom: pixel difference (5$\times$ amplified) - \textcolor{accentgreen}{\textbf{near-zero}}
+\end{itemize}
+
+The ODE inversion is \textbf{near-perfect}, confirming the model learned an accurate invertible flow.
+\end{frame}
+
+\begin{frame}{Latent perturbations}
+\centering
+\includegraphics[width=0.9\textwidth]{perturbations.png}
+
+\vspace{0.5em}
+Perturb the recovered noise: $z_0 + \sigma \cdot \epsilon$, then decode.
+
+\begin{itemize}
+    \item $\sigma = 0$: original image
+    \item $\sigma = 0.1\text{--}0.3$: subtle variations, identity preserved
+\end{itemize}
+
+Confirms the latent space is \textbf{smooth and locally stable}.
+\end{frame}
+
+\begin{frame}{Attribute editing via direction vectors}
+\centering
+\includegraphics[width=0.85\textwidth]{attribute_editing.png}
+
+\vspace{0.5em}
+\textbf{Method:} compute class-mean latents $\bar{z}_0$ from 50 images/class, then:
+$$z_0^{\text{edit}} = z_0 + \lambda \cdot (\bar{z}_0^{\text{target}} - \bar{z}_0^{\text{source}})$$
+
+\begin{itemize}
+    \item $\lambda = 0$: original image
+    \item $\lambda > 0$: push toward target class (e.g., horse $\to$ car)
+    \item $\lambda < 0$: push away from target class
+\end{itemize}
+
+Subtle but directional changes - limited by 32$\times$32 resolution.
+\end{frame}
+
+\begin{frame}{Real image interpolation}
+\centering
+\includegraphics[width=0.85\textwidth]{real_interpolation.png}
+
+\vspace{0.5em}
+\textbf{Method:} encode two real images $\to$ $z_0^A$, $z_0^B$, then decode blends:
+$$z_0^{\alpha} = (1-\alpha)\,z_0^A + \alpha\,z_0^B$$
+
+Unlike random-noise interpolation, this guarantees \textbf{real images at both endpoints}.
+
+Smooth, semantically meaningful transitions through latent space.
+\end{frame}
+
+% ============================================================
 \section{Analysis}
 
-\begin{frame}{Why Does Flow Matching Win?}
+\begin{frame}{Why does flow matching win?}
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 \textbf{\textcolor{ddpmred}{Diffusion (DDPM/DDIM)}}
@@ -421,7 +520,7 @@ Classifier-free guidance (CFG) controls the diversity--fidelity tradeoff. Higher
 DDIM inherits errors from stochastic training $\Rightarrow$ error accumulation.
 \end{frame}
 
-\begin{frame}{Solver Analysis}
+\begin{frame}{Solver analysis}
 \centering
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
@@ -446,7 +545,7 @@ Euler & 21.07 & 16.69 & 13.78 & 13.19 \\
 \textbf{Recommendation}: Use Midpoint for fast sampling, RK4 for maximum quality.
 \end{frame}
 
-\begin{frame}{DDIM Saturation Effect}
+\begin{frame}{DDIM saturation effect}
 \centering
 \large
 \begin{tabular}{@{}lrrrr@{}}
@@ -470,7 +569,7 @@ Euler & 21.07 & 16.69 & 13.78 & 13.19 \\
 % ============================================================
 \section{Conclusion}
 
-\begin{frame}{Key Takeaways}
+\begin{frame}{Key takeaways}
 \begin{enumerate}
     \item \textbf{Flow matching $>$ diffusion} at every NFE budget on CIFAR-10
     \vspace{0.5em}
@@ -486,7 +585,7 @@ Euler & 21.07 & 16.69 & 13.78 & 13.19 \\
 \end{enumerate}
 \end{frame}
 
-\begin{frame}{Limitations \& Future Work}
+\begin{frame}{Limitations \& future work}
 \textbf{Limitations:}
 \begin{itemize}
     \item Single dataset: CIFAR-10 at $32 \times 32$
